@@ -1,0 +1,37 @@
+# Ignore image files
+*.png
+
+# Ignore NumPy arrays
+*.npy
+
+# Ignore PyTorch model files
+*.pth
+
+# Ignore pickle files
+*.pkl
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Dataset folders
+data/
+datasets/
+
+# Model outputs or logs
+outputs/
+runs/
+logs/
+
+# OS / IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
