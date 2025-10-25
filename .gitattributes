@@ -1,0 +1,19 @@
+# --- Ignore large or non-source files from language stats ---
+
+*.ipynb linguist-detectable=false
+*.csv linguist-detectable=false
+*.npy linguist-detectable=false
+*.pkl linguist-detectable=false
+*.pth linguist-detectable=false
+*.png linguist-detectable=false
+*.jpg linguist-detectable=false
+*.jpeg linguist-detectable=false
+*.gif linguist-detectable=false
+*.pt linguist-detectable=false
+*.h5 linguist-detectable=false
+
+# Optional: if you have a docs folder
+docs/* linguist-documentation=true
+
+# Explicitly tell GitHub to count Python files
+*.py linguist-language=Python
