@@ -6,7 +6,8 @@
 
 # Ignore PyTorch model files
 *.pth
-
+*.wav
+*.txt
 # Ignore pickle files
 *.pkl
 # Python cache
