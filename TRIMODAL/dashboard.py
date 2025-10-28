@@ -182,6 +182,113 @@ if st.button("🔍 Predict Parkinson Status"):
         # Show result
         st.success(f"🧩 **Prediction:** {pred_class}")
         st.metric(label="Confidence (Parkinson Probability)", value=f"{proba*100:.2f}%")
-
         st.caption(f"Feature vector shape: {fused.shape} → Model expects 70 features.")
         st.info("✅ Prediction complete. All inputs processed successfully.")
+
+# =======================================================
+# ===============  XAI SECTION  =========================
+# =======================================================
+st.divider()
+st.header("🔍 Explainability (XAI) Insights")
+
+import cv2
+import matplotlib.pyplot as plt
+from torchvision import transforms
+from PIL import Image
+import numpy as np
+import torch
+import torchaudio
+from torchcam.methods import SmoothGradCAMpp
+
+# ---------------- HANDWRITING GRAD-CAM ----------------
+st.subheader("✍️ Handwriting Grad-CAM Visualization")
+
+IMG_SIZE = 224
+
+class GradCAM:
+    def __init__(self, model, target_layer):
+        self.model = model
+        self.target_layer = target_layer
+        self.gradients = None
+        self.activations = None
+        self.hook()
+
+    def hook(self):
+        def forward_hook(module, input, output):
+            self.activations = output.detach()
+        def backward_hook(module, grad_in, grad_out):
+            self.gradients = grad_out[0].detach()
+        self.target_layer.register_forward_hook(forward_hook)
+        self.target_layer.register_backward_hook(backward_hook)
+
+    def __call__(self, x, class_idx=None):
+        self.model.zero_grad()
+        output = self.model(x)
+        if class_idx is None:
+            class_idx = output.argmax(dim=1).item()
+        loss = output[0, class_idx]
+        loss.backward()
+        weights = self.gradients.mean(dim=(2, 3), keepdim=True)
+        cam = (weights * self.activations).sum(dim=1, keepdim=True)
+        cam = torch.relu(cam)
+        cam = cam.squeeze().cpu().numpy()
+        cam = cv2.resize(cam, (IMG_SIZE, IMG_SIZE))
+        cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
+        return cam, class_idx
+
+
+def overlay_heatmap(img, heatmap, alpha=0.5, colormap=cv2.COLORMAP_JET):
+    heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap), colormap)
+    img_np = np.array(img.resize((IMG_SIZE, IMG_SIZE)))
+    if img_np.ndim == 2:
+        img_np = cv2.cvtColor(img_np, cv2.COLOR_GRAY2BGR)
+    overlayed = cv2.addWeighted(img_np, 1 - alpha, heatmap_color, alpha, 0)
+    return overlayed
+
+
+# Apply Grad-CAM to uploaded handwriting
+pil_img = Image.open(img_path).convert("L")
+input_tensor = preprocess_image(img_path)
+gradcam = GradCAM(hand_model, hand_model.layer4[-1].conv3)
+cam, _ = gradcam(input_tensor)
+overlayed = overlay_heatmap(pil_img, cam)
+st.image(overlayed, caption="Model attention on handwriting (Grad-CAM)", use_container_width=True)
+
+# ---------------- SPEECH GRAD-CAM ----------------
+st.subheader("🎤 Speech Mel-Spectrogram Grad-CAM++")
+
+speech_model.eval()
+cam_extractor = SmoothGradCAMpp(speech_model, target_layer='features.7')
+
+mel_spec = preprocess_speech(audio_path)
+output = speech_model(mel_spec)
+pred_class = output.argmax(dim=1).item()
+activation_map = cam_extractor(pred_class, output)[0].cpu().detach().numpy()
+
+if activation_map.ndim > 2:
+    activation_map = activation_map.mean(axis=0)
+
+mel_np = mel_spec[0, 0].cpu().numpy()
+cam_resized = cv2.resize(activation_map, (mel_np.shape[1], mel_np.shape[0]))
+
+plt.figure(figsize=(8, 3))
+plt.imshow(mel_np, aspect='auto', origin='lower', cmap='viridis')
+plt.imshow(cam_resized, cmap='jet', alpha=0.5, aspect='auto', origin='lower')
+plt.colorbar()
+plt.title("Speech Mel-Spectrogram Grad-CAM++")
+st.pyplot(plt.gcf())
+
+# ---------------- GAIT SHAP ----------------
+st.subheader("🚶 Gait Feature Importance (SHAP)")
+
+import shap
+explainer = shap.TreeExplainer(trimodal_model)
+shap_vals = explainer.shap_values(fused)
+gait_shap = shap_vals[0][-18:]
+fig, ax = plt.subplots(figsize=(5,3))
+ax.bar(range(18), np.abs(gait_shap))
+ax.set_title("Gait Feature Importance (SHAP)")
+ax.set_xlabel("Feature index")
+st.pyplot(fig)
+
+st.info("✅ XAI visualizations generated: Grad-CAM (Handwriting), Grad-CAM++ (Speech), SHAP (Gait).")
