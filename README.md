@@ -135,7 +135,7 @@ This makes the system **clinically trustworthy**.
 
 ## 🏆 Publication Status
 
-📌 This research is currently in the **final stage of publication at Frontier Journal**.
+📌 This research is currently **published in Frontiers Journal**.
 
 ---
 
